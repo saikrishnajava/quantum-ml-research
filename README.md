@@ -24,7 +24,7 @@ A hybrid transformer where key components run through parameterized quantum circ
 | **Memory** | — | Quantum associative recall |
 | **Agent** | Tool-use loop | Quantum-enhanced tool selection + multi-agent coordination |
 
-Built on PennyLane + NumPy. Zero PyTorch dependency. Includes a fast numpy quantum simulator (14x faster than PennyLane QNode for small circuits).
+Built on PennyLane + NumPy. Zero PyTorch dependency. Includes a fast numpy quantum simulator for small circuits (informational speedup vs PennyLane QNode; no speedup assertion).
 
 ## Architecture
 
@@ -66,13 +66,19 @@ Input Text
 ## Quick Start
 
 ```bash
-# Clone
-git clone https://github.com/saikrishnajava/quantum-llm-agent.git
+# Clone pinned release v0.1.0 (full clone so tag + commit objects are present)
+git clone -q --branch v0.1.0 https://github.com/saikrishnajava/quantum-llm-agent.git
 cd quantum-llm-agent
+EXPECTED_SHA=1587497de77d33942a045b091aaded1ef45b5785
+git rev-parse HEAD \
+  && git verify-tag v0.1.0 \
+  && git verify-commit HEAD \
+  && [ "$(git rev-parse HEAD)" = "$EXPECTED_SHA" ] || exit 1
+# Tag-trust: e161aed0 is the tag object SHA; 1587497de77d33942a045b091aaded1ef45b5785 is the commit SHA it points to. Single pinned full SHA; verify-tag/verify-commit confirm authenticity.
 
 # Setup
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e .
+pip install --require-hashes -r requirements.lock
 
 # Run the 12-qubit proof of concept
 python examples/demos/poc_12qubit.py
@@ -109,9 +115,11 @@ Training speed depends on backend and model:
 
 | Backend | Hardware | Speed | Notes |
 |---------|----------|-------|-------|
-| Fast numpy simulator | Any CPU | ~100ms/step | Default for ≤12 qubits, 14x faster than PennyLane |
-| `lightning.qubit` + adjoint | CPU (C++) | ~200ms/step | Install `pennylane-lightning` |
-| `lightning.gpu` + adjoint | NVIDIA GPU (Volta+) | ~50ms/step | Install `pennylane-lightning[gpu]` |
+| Fast numpy simulator | Linux CPU | ~2482ms Run 1 | Default for ≤12 qubits |
+| Fast numpy simulator (tuned) | Linux CPU | ~1050ms Run 3 | More than halved vs Run 1 |
+| Adaptive qubit MoE | Linux CPU | ~3276ms | 6/9/12-qubit experts |
+
+GPU note: on this small scale the Colab T4 GPU (~4362ms per step) is slower than Linux CPU (~2450ms per step) — transfer overhead outweighs parallelization.
 
 ## Project Structure
 
@@ -138,7 +146,7 @@ quantum-llm-agent/
 │   ├── reasoning/        #   Quantum decision + pattern matching
 │   ├── memory/           #   Quantum associative memory
 │   └── coordination/     #   Agent loop + multi-agent coordinator
-├── tests/                # 55 tests (unit, integration, gradient flow, MoE, benchmarks)
+├── tests/                # 51 tests (unit, integration, gradient flow, MoE, benchmarks)
 ├── config/               # YAML configs for backends, models, training
 └── examples/demos/       # Runnable demos
 ```
@@ -150,19 +158,24 @@ quantum-llm-agent/
 | Quantum circuit types | 6 (feature map, positional, attention, activation, decision, pattern) |
 | Adaptive qubit MoE | Trainable router over 6/9/12 qubit experts |
 | Training | End-to-end gradient flow through quantum circuits |
-| Fast simulator | 14x faster than PennyLane QNode (numpy tensor ops) |
-| Tests | 55 passing |
-| Dependencies | PennyLane + NumPy only |
+| Fast simulator | numpy tensor ops; informational speedup only |
+| Tests | 51 passing |
+| Dependencies | PennyLane + NumPy + SciPy + PyYAML (+ pennylane-lightning) |
+| Quantum advantage at capacity/20 epochs | None — all models at chance (48–50%), Winner = Tie (N=3 exploratory) |
+| Defensible claim | Param-efficiency only: quantum / moe_6_9 reach chance accuracy with fewer quantum params |
 
 **Current scale:** ~11K params, character-level, trained on Shakespeare. Output is not coherent — this is a proof-of-concept for the architecture, not a production language model.
+
+See `docs/parity-efficiency-pivot.md` for the parity/efficiency pivot (Spec P,F6-docs): no advantage at capacity/20 epochs, param-efficiency only, both at chance 48–50%, N=3 exploratory (not N=5), moe_6_9 naming.
 
 ## Requirements
 
 - Python 3.10+
-- PennyLane >= 0.39.0
-- NumPy >= 1.24.0
-- SciPy >= 1.11.0
-- PyYAML >= 6.0
+- PennyLane >= 0.39.0, <0.45
+- NumPy >= 1.24.0, <2
+- SciPy >= 1.11.0, <2
+- PyYAML >= 6.0, <7
+(Upper bounds mirror pyproject.toml:14-18.)
 
 Optional for GPU acceleration:
 - NVIDIA GPU with CUDA (compute capability 7.0+ / Volta or newer)
