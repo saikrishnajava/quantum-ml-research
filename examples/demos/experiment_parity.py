@@ -13,6 +13,7 @@ import sys
 import json
 import time
 import warnings
+import argparse
 from pathlib import Path
 
 import numpy as np
@@ -20,6 +21,9 @@ import autograd.numpy as anp
 
 warnings.filterwarnings("ignore")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
+from benchmarks.runner import SEEDS, _json_default
+from benchmarks.analysis.statistics import confidence_interval, paired_significance
 
 from hybrid.interfaces.model import HybridQuantumLLM
 from classical.optimizers.trainer import HybridQuantumTrainer
@@ -89,15 +93,11 @@ def train_and_evaluate(name, model, X_train, y_train, X_test, y_test, n_epochs=2
         elapsed = time.perf_counter() - t0
         avg_loss = float(np.mean(epoch_losses))
 
-        # Evaluate accuracy on test set (every 5 epochs to save time)
-        if (epoch + 1) % 5 == 0 or epoch == 0:
-            test_acc = evaluate_accuracy(model, X_test, y_test, vocab_size)
-            train_acc = evaluate_accuracy(
-                model, X_train[:100], y_train[:100], vocab_size
-            )
-        else:
-            test_acc = results[-1]["test_acc"] if results else 0.0
-            train_acc = results[-1]["train_acc"] if results else 0.0
+        # Evaluate accuracy every epoch (no carry-forward / interpolation).
+        test_acc = evaluate_accuracy(model, X_test, y_test, vocab_size)
+        train_acc = evaluate_accuracy(
+            model, X_train[:100], y_train[:100], vocab_size
+        )
 
         results.append(
             {
@@ -139,12 +139,22 @@ def main():
     # Generate data
     N_BITS = 8
     X_train, y_train = generate_parity_dataset(N_BITS, n_samples=800, seed=42)
-    X_test, y_test = generate_parity_dataset(N_BITS, n_samples=200, seed=99)
-    print(f"Data: {len(X_train)} train, {len(X_test)} test, {N_BITS} bits")
     print(f"Class balance: {y_train.mean():.2f} (should be ~0.50)")
 
     VOCAB_SIZE = 2  # binary: 0 and 1
-    N_EPOCHS = 20
+
+    # CLI overrides — smoke: --seeds 42 --epochs 5 ; full: defaults (N=5, 20 epochs)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seeds", type=int, nargs="+", default=list(SEEDS))
+    parser.add_argument("--epochs", type=int, default=20)
+    args = parser.parse_args()
+    SEEDS_LIST = list(args.seeds)
+    N_SEEDS = len(SEEDS_LIST)
+    N_EPOCHS = args.epochs
+
+    # RIGOR-1 capacity match: count_parameters() totals are
+    # Classical 2352 (0 quantum), Quantum 2370 (18 quantum), MoE 2406 (16 quantum).
+    # Exact per-config totals are reported by count_parameters() and saved in parity_results.json.
 
     # Model configs — same d_model, same layers, same total architecture
     configs = {
@@ -168,7 +178,7 @@ def main():
                 "use_quantum_activation": False,
             },
         },
-        "MoE (6/9/12 qubit router)": {
+        "MoE (6/9 qubit router)": {
             "quantum_heads_per_layer": 1,
             "quantum_config": {
                 "use_quantum_embedding": False,
@@ -177,57 +187,132 @@ def main():
                 "activation_qubits": 3,
                 "use_quantum_activation": False,
                 "use_moe": True,
-                "moe_qubit_configs": [6, 9, 12],
+                # 12-qubit expert selects lightning.qubit (core.py _select_device,
+                # n_qubits>10) whose adjoint + AmplitudeEmbedding + autograd yields
+                # a NaN state-vector norm in this env; keep experts <= 10 qubits so
+                # they run on default.qubit fast-sim (in-scope config only).
+                "moe_qubit_configs": [6, 9],
                 "moe_temperature": 1.0,
             },
         },
     }
 
     all_results = {}
+    capacity = {}
     for name, cfg in configs.items():
-        model = HybridQuantumLLM(
-            vocab_size=VOCAB_SIZE,
-            d_model=16,
-            n_layers=1,
-            n_heads=4,
-            d_ff=32,
-            max_seq_length=16,
-            dropout=0.0,
-            quantum_heads_per_layer=cfg["quantum_heads_per_layer"],
-            quantum_config=cfg["quantum_config"],
-        )
-        result = train_and_evaluate(
-            name, model, X_train, y_train, X_test, y_test, N_EPOCHS
-        )
-        all_results[name] = result
+        test_accs = []
+        seed_detail = []
+        params = None
+        for seed in SEEDS_LIST:
+            Xtr, ytr = generate_parity_dataset(N_BITS, n_samples=800, seed=seed)
+            Xte, yte = generate_parity_dataset(N_BITS, n_samples=200, seed=seed + 1)
+            model = HybridQuantumLLM(
+                vocab_size=VOCAB_SIZE,
+                d_model=16,
+                n_layers=1,
+                n_heads=4,
+                d_ff=32,
+                max_seq_length=16,
+                dropout=0.0,
+                quantum_heads_per_layer=cfg["quantum_heads_per_layer"],
+                quantum_config=cfg["quantum_config"],
+            )
+            if params is None:
+                params = model.count_parameters()
+                capacity[name] = params
+            result = train_and_evaluate(
+                name, model, Xtr, ytr, Xte, yte, N_EPOCHS
+            )
+            test_accs.append(result["final_test_acc"])
+            seed_detail.append({"seed": seed, "test_acc": result["final_test_acc"]})
+        ci = confidence_interval(test_accs)
+        all_results[name] = {
+            "params_total": params["total"],
+            "params_quantum": params["quantum"],
+            "seeds": SEEDS_LIST,
+            "test_accs": test_accs,
+            "seed_detail": seed_detail,
+            "mean_test_acc": ci["mean"],
+            "ci_95": [ci["ci_low"], ci["ci_high"]],
+            "std": ci["std"],
+            "n": ci["n"],
+        }
+
+    # RIGOR-1 capacity assert: every config's parameter totals must be
+    # recorded (nonzero total, non-negative quantum count).
+    for name, cap in capacity.items():
+        assert cap["total"] > 0, f"{name}: capacity total not recorded"
+        assert cap["quantum"] >= 0, f"{name}: quantum capacity not recorded"
+
+    # Paired significance (classical vs quantum) across the shared seeds
+    names = list(all_results.keys())
+    significance = {}
+    classical_key = "Classical (0 quantum heads)"
+    quantum_key = "Quantum (1 fixed 6-qubit head)"
+    if classical_key in all_results and quantum_key in all_results:
+        c_accs = all_results[classical_key]["test_accs"]
+        q_accs = all_results[quantum_key]["test_accs"]
+        significance["classical_vs_quantum"] = paired_significance(c_accs, q_accs)
 
     # Print comparison
     print("\n" + "=" * 60)
-    print("FINAL RESULTS: PARITY DETECTION (XOR of 8 bits)")
+    print(f"FINAL RESULTS: PARITY DETECTION (XOR of 8 bits), N={N_SEEDS} seeds")
     print("=" * 60)
 
     for name, r in all_results.items():
+        ci = r["ci_95"]
         print(f"\n  {name}:")
         print(f"    Params: {r['params_total']:,} ({r['params_quantum']} quantum)")
-        print(f"    Test accuracy: {r['final_test_acc']:.1%}")
-        print(f"    Final loss: {r['final_loss']:.4f}")
-        print(f"    Time: {r['total_time_s']:.1f}s")
+        print(f"    Test acc (mean +/- std): {r['mean_test_acc']:.1%} +/- {r['std']:.1%}")
+        print(f"    CI95: [{ci[0]:.1%}, {ci[1]:.1%}]  per-seed: {[f'{a:.1%}' for a in r['test_accs']]}")
 
-    # Accuracy comparison
     print("\n  " + "-" * 40)
-    names = list(all_results.keys())
-    accs = {n: all_results[n]["final_test_acc"] for n in names}
-    winner = max(accs, key=accs.get)
-    print(f"  Winner: {winner} ({accs[winner]:.1%})")
+    if "classical_vs_quantum" in significance:
+        sig = significance["classical_vs_quantum"]
+        star = "*" if sig["significant"] else ""
+        print(
+            f"  Significance (classical vs quantum): p={sig['p_value']:.4f}{star}, "
+            f"Cohen's d={sig['cohens_d']:.2f}, "
+            f"diff={sig['mean_diff']*100:+.1f}%"
+        )
+        c_mean = all_results[classical_key]["mean_test_acc"]
+        q_mean = all_results[quantum_key]["mean_test_acc"]
+        significant = sig.get("significant") is True  # bool("False") is True: never coerce strings
+        if not significant:
+            winner = "Tie"
+        elif q_mean > c_mean:
+            winner = "Quantum"
+        else:
+            winner = "Classical"
+        print(f"  Winner: {winner} (quantum {q_mean:.1%} vs classical {c_mean:.1%})")
+    else:
+        accs = {n: all_results[n]["mean_test_acc"] for n in names}
+        winner = max(accs, key=accs.get)
+        print(f"  Winner: {winner} ({accs[winner]:.1%})")
 
     for n in names:
-        bar = "#" * int(accs[n] * 40)
-        print(f"    {accs[n]:5.1%} {bar} {n}")
+        bar = "#" * int(all_results[n]["mean_test_acc"] * 40)
+        print(
+            f"    {all_results[n]['mean_test_acc']:5.1%} {bar} {n}"
+        )
 
-    # Save
+    # Save — per-seed distribution + mean/ci_95/std/p/d
     out_path = Path(__file__).parent / "parity_results.json"
+    payload = {
+        "config": {
+            "n_bits": N_BITS,
+            "n_train": 800,
+            "n_test": 200,
+            "n_epochs": N_EPOCHS,
+            "seeds": SEEDS_LIST,
+            "n_seeds": N_SEEDS,
+            "capacity_match": capacity,
+        },
+        "results": all_results,
+        "significance": significance,
+    }
     with open(out_path, "w") as f:
-        json.dump(all_results, f, indent=2, default=str)
+        json.dump(payload, f, indent=2, default=_json_default)
     print(f"\n  Results saved to {out_path}")
 
 

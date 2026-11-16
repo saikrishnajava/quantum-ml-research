@@ -1,455 +1,187 @@
 {
-  "Classical (0 quantum heads)": {
-    "name": "Classical (0 quantum heads)",
-    "params_total": 2352,
-    "params_quantum": 0,
-    "final_loss": 0.13286519443228076,
-    "final_test_acc": 0.44,
-    "final_train_acc": 0.45,
-    "total_time_s": 8.7,
-    "epochs": [
-      {
-        "epoch": 1,
-        "loss": 0.7044485150483328,
-        "train_acc": 0.54,
-        "test_acc": 0.5,
-        "time": 0.3717037469614297
+  "config": {
+    "n_bits": 8,
+    "n_train": 800,
+    "n_test": 200,
+    "n_epochs": 20,
+    "seeds": [
+      42,
+      99,
+      137,
+      256,
+      314
+    ],
+    "n_seeds": 5,
+    "capacity_match": {
+      "Classical (0 quantum heads)": {
+        "classical": 2352,
+        "quantum": 0,
+        "total": 2352
       },
-      {
-        "epoch": 2,
-        "loss": 0.6634891386832189,
-        "train_acc": 0.54,
-        "test_acc": 0.5,
-        "time": 0.31685195199679583
+      "Quantum (1 fixed 6-qubit head)": {
+        "classical": 2352,
+        "quantum": 18,
+        "total": 2370
       },
-      {
-        "epoch": 3,
-        "loss": 0.32836695000960314,
-        "train_acc": 0.54,
-        "test_acc": 0.5,
-        "time": 0.3205405690241605
-      },
-      {
-        "epoch": 4,
-        "loss": 0.2496729371356745,
-        "train_acc": 0.54,
-        "test_acc": 0.5,
-        "time": 0.33994763891678303
-      },
-      {
-        "epoch": 5,
-        "loss": 0.1998019405074864,
-        "train_acc": 0.53,
-        "test_acc": 0.51,
-        "time": 0.32881673402152956
-      },
-      {
-        "epoch": 6,
-        "loss": 0.1904126426763502,
-        "train_acc": 0.53,
-        "test_acc": 0.51,
-        "time": 0.3884241010528058
-      },
-      {
-        "epoch": 7,
-        "loss": 0.1789606873241178,
-        "train_acc": 0.53,
-        "test_acc": 0.51,
-        "time": 0.36628616601228714
-      },
-      {
-        "epoch": 8,
-        "loss": 0.16309888386582588,
-        "train_acc": 0.53,
-        "test_acc": 0.51,
-        "time": 0.34421644697431475
-      },
-      {
-        "epoch": 9,
-        "loss": 0.1513537979271069,
-        "train_acc": 0.53,
-        "test_acc": 0.51,
-        "time": 0.42446736595593393
-      },
-      {
-        "epoch": 10,
-        "loss": 0.15907842099021705,
-        "train_acc": 0.41,
-        "test_acc": 0.495,
-        "time": 0.4629947890061885
-      },
-      {
-        "epoch": 11,
-        "loss": 0.1479687164351907,
-        "train_acc": 0.41,
-        "test_acc": 0.495,
-        "time": 0.46488636394497007
-      },
-      {
-        "epoch": 12,
-        "loss": 0.14326464033218173,
-        "train_acc": 0.41,
-        "test_acc": 0.495,
-        "time": 0.5765443580457941
-      },
-      {
-        "epoch": 13,
-        "loss": 0.13508140579532665,
-        "train_acc": 0.41,
-        "test_acc": 0.495,
-        "time": 0.3383377369027585
-      },
-      {
-        "epoch": 14,
-        "loss": 0.14157165972211302,
-        "train_acc": 0.41,
-        "test_acc": 0.495,
-        "time": 0.3203869080170989
-      },
-      {
-        "epoch": 15,
-        "loss": 0.13558239771189476,
-        "train_acc": 0.5,
-        "test_acc": 0.42,
-        "time": 0.30372733098920435
-      },
-      {
-        "epoch": 16,
-        "loss": 0.14895100021695026,
-        "train_acc": 0.5,
-        "test_acc": 0.42,
-        "time": 0.32923458400182426
-      },
-      {
-        "epoch": 17,
-        "loss": 0.14123013153187292,
-        "train_acc": 0.5,
-        "test_acc": 0.42,
-        "time": 0.3048550420207903
-      },
-      {
-        "epoch": 18,
-        "loss": 0.1297926541466475,
-        "train_acc": 0.5,
-        "test_acc": 0.42,
-        "time": 0.33364957908634096
-      },
-      {
-        "epoch": 19,
-        "loss": 0.1344374522049839,
-        "train_acc": 0.5,
-        "test_acc": 0.42,
-        "time": 0.30477387900464237
-      },
-      {
-        "epoch": 20,
-        "loss": 0.13286519443228076,
-        "train_acc": 0.45,
-        "test_acc": 0.44,
-        "time": 0.37814600206911564
+      "MoE (6/9 qubit router)": {
+        "classical": 2390,
+        "quantum": 16,
+        "total": 2406
       }
-    ]
+    }
   },
-  "Quantum (1 fixed 6-qubit head)": {
-    "name": "Quantum (1 fixed 6-qubit head)",
-    "params_total": 2376,
-    "params_quantum": 24,
-    "final_loss": 0.11928118578289744,
-    "final_test_acc": 0.5,
-    "final_train_acc": 0.54,
-    "total_time_s": 1820.5,
-    "epochs": [
-      {
-        "epoch": 1,
-        "loss": 0.6984407795236578,
-        "train_acc": 0.47,
-        "test_acc": 0.49,
-        "time": 91.02209635998588
-      },
-      {
-        "epoch": 2,
-        "loss": 0.630722098956623,
-        "train_acc": 0.47,
-        "test_acc": 0.49,
-        "time": 92.63397115597036
-      },
-      {
-        "epoch": 3,
-        "loss": 0.31516710172697027,
-        "train_acc": 0.47,
-        "test_acc": 0.49,
-        "time": 91.06097577896435
-      },
-      {
-        "epoch": 4,
-        "loss": 0.23939155309193835,
-        "train_acc": 0.47,
-        "test_acc": 0.49,
-        "time": 90.67000618507154
-      },
-      {
-        "epoch": 5,
-        "loss": 0.1961179923493441,
-        "train_acc": 0.45,
-        "test_acc": 0.495,
-        "time": 90.3549826060189
-      },
-      {
-        "epoch": 6,
-        "loss": 0.17741415286228773,
-        "train_acc": 0.45,
-        "test_acc": 0.495,
-        "time": 90.35502834699582
-      },
-      {
-        "epoch": 7,
-        "loss": 0.1550573128800502,
-        "train_acc": 0.45,
-        "test_acc": 0.495,
-        "time": 89.92369876801968
-      },
-      {
-        "epoch": 8,
-        "loss": 0.15334254271028783,
-        "train_acc": 0.45,
-        "test_acc": 0.495,
-        "time": 90.96585048898123
-      },
-      {
-        "epoch": 9,
-        "loss": 0.1514812681103328,
-        "train_acc": 0.45,
-        "test_acc": 0.495,
-        "time": 91.1828240910545
-      },
-      {
-        "epoch": 10,
-        "loss": 0.14603759060127744,
-        "train_acc": 0.45,
-        "test_acc": 0.525,
-        "time": 90.3743042089045
-      },
-      {
-        "epoch": 11,
-        "loss": 0.14178465141444352,
-        "train_acc": 0.45,
-        "test_acc": 0.525,
-        "time": 89.60005831706803
-      },
-      {
-        "epoch": 12,
-        "loss": 0.13725000461682557,
-        "train_acc": 0.45,
-        "test_acc": 0.525,
-        "time": 91.65896433300804
-      },
-      {
-        "epoch": 13,
-        "loss": 0.1423073109975696,
-        "train_acc": 0.45,
-        "test_acc": 0.525,
-        "time": 91.69418944499921
-      },
-      {
-        "epoch": 14,
-        "loss": 0.1298907821727503,
-        "train_acc": 0.45,
-        "test_acc": 0.525,
-        "time": 91.12101549806539
-      },
-      {
-        "epoch": 15,
-        "loss": 0.12507470536888193,
-        "train_acc": 0.58,
-        "test_acc": 0.5,
-        "time": 91.05507267301437
-      },
-      {
-        "epoch": 16,
-        "loss": 0.13285562342822327,
-        "train_acc": 0.58,
-        "test_acc": 0.5,
-        "time": 90.67583829595242
-      },
-      {
-        "epoch": 17,
-        "loss": 0.12534604200316765,
-        "train_acc": 0.58,
-        "test_acc": 0.5,
-        "time": 91.20954044698738
-      },
-      {
-        "epoch": 18,
-        "loss": 0.1274460586324538,
-        "train_acc": 0.58,
-        "test_acc": 0.5,
-        "time": 90.08380717702676
-      },
-      {
-        "epoch": 19,
-        "loss": 0.12572196859022264,
-        "train_acc": 0.58,
-        "test_acc": 0.5,
-        "time": 90.85885928303469
-      },
-      {
-        "epoch": 20,
-        "loss": 0.11928118578289744,
-        "train_acc": 0.54,
-        "test_acc": 0.5,
-        "time": 91.98593403503764
-      }
-    ]
+  "results": {
+    "Classical (0 quantum heads)": {
+      "params_total": 2352,
+      "params_quantum": 0,
+      "seeds": [
+        42,
+        99,
+        137,
+        256,
+        314
+      ],
+      "test_accs": [
+        0.465,
+        0.515,
+        0.49,
+        0.47,
+        0.495
+      ],
+      "seed_detail": [
+        {
+          "seed": 42,
+          "test_acc": 0.465
+        },
+        {
+          "seed": 99,
+          "test_acc": 0.515
+        },
+        {
+          "seed": 137,
+          "test_acc": 0.49
+        },
+        {
+          "seed": 256,
+          "test_acc": 0.47
+        },
+        {
+          "seed": 314,
+          "test_acc": 0.495
+        }
+      ],
+      "mean_test_acc": 0.487,
+      "ci_95": [
+        0.46193498922985654,
+        0.5120650107701434
+      ],
+      "std": 0.020186629238186354,
+      "n": 5
+    },
+    "Quantum (1 fixed 6-qubit head)": {
+      "params_total": 2370,
+      "params_quantum": 18,
+      "seeds": [
+        42,
+        99,
+        137,
+        256,
+        314
+      ],
+      "test_accs": [
+        0.465,
+        0.535,
+        0.49,
+        0.55,
+        0.49
+      ],
+      "seed_detail": [
+        {
+          "seed": 42,
+          "test_acc": 0.465
+        },
+        {
+          "seed": 99,
+          "test_acc": 0.535
+        },
+        {
+          "seed": 137,
+          "test_acc": 0.49
+        },
+        {
+          "seed": 256,
+          "test_acc": 0.55
+        },
+        {
+          "seed": 314,
+          "test_acc": 0.49
+        }
+      ],
+      "mean_test_acc": 0.506,
+      "ci_95": [
+        0.46223244484311543,
+        0.5497675551568846
+      ],
+      "std": 0.03524911346402915,
+      "n": 5
+    },
+    "MoE (6/9 qubit router)": {
+      "params_total": 2406,
+      "params_quantum": 16,
+      "seeds": [
+        42,
+        99,
+        137,
+        256,
+        314
+      ],
+      "test_accs": [
+        0.47,
+        0.505,
+        0.545,
+        0.505,
+        0.47
+      ],
+      "seed_detail": [
+        {
+          "seed": 42,
+          "test_acc": 0.47
+        },
+        {
+          "seed": 99,
+          "test_acc": 0.505
+        },
+        {
+          "seed": 137,
+          "test_acc": 0.545
+        },
+        {
+          "seed": 256,
+          "test_acc": 0.505
+        },
+        {
+          "seed": 314,
+          "test_acc": 0.47
+        }
+      ],
+      "mean_test_acc": 0.499,
+      "ci_95": [
+        0.46037846098106383,
+        0.5376215390189362
+      ],
+      "std": 0.031104662029991608,
+      "n": 5
+    }
   },
-  "MoE (6/9/12 qubit router)": {
-    "name": "MoE (6/9/12 qubit router)",
-    "params_total": 2469,
-    "params_quantum": 54,
-    "final_loss": 0.1260752456580982,
-    "final_test_acc": 0.475,
-    "final_train_acc": 0.52,
-    "total_time_s": 10610.5,
-    "epochs": [
-      {
-        "epoch": 1,
-        "loss": 0.7051270351022503,
-        "train_acc": 0.54,
-        "test_acc": 0.5,
-        "time": 621.6339622200467
-      },
-      {
-        "epoch": 2,
-        "loss": 0.7019617910890762,
-        "train_acc": 0.54,
-        "test_acc": 0.5,
-        "time": 607.1380287570646
-      },
-      {
-        "epoch": 3,
-        "loss": 0.6910104795179133,
-        "train_acc": 0.54,
-        "test_acc": 0.5,
-        "time": 607.616045756964
-      },
-      {
-        "epoch": 4,
-        "loss": 0.46226425630264084,
-        "train_acc": 0.54,
-        "test_acc": 0.5,
-        "time": 626.3024656559573
-      },
-      {
-        "epoch": 5,
-        "loss": 0.2708844655835803,
-        "train_acc": 0.46,
-        "test_acc": 0.56,
-        "time": 545.0161025410052
-      },
-      {
-        "epoch": 6,
-        "loss": 0.22434309574502392,
-        "train_acc": 0.46,
-        "test_acc": 0.56,
-        "time": 519.8510866379365
-      },
-      {
-        "epoch": 7,
-        "loss": 0.19466936897081935,
-        "train_acc": 0.46,
-        "test_acc": 0.56,
-        "time": 507.6846284440253
-      },
-      {
-        "epoch": 8,
-        "loss": 0.17479729496058286,
-        "train_acc": 0.46,
-        "test_acc": 0.56,
-        "time": 498.5676185520133
-      },
-      {
-        "epoch": 9,
-        "loss": 0.1639657634151826,
-        "train_acc": 0.46,
-        "test_acc": 0.56,
-        "time": 496.832241978962
-      },
-      {
-        "epoch": 10,
-        "loss": 0.16502086390663667,
-        "train_acc": 0.43,
-        "test_acc": 0.5,
-        "time": 496.5003661470255
-      },
-      {
-        "epoch": 11,
-        "loss": 0.15564532104459786,
-        "train_acc": 0.43,
-        "test_acc": 0.5,
-        "time": 494.84942681598477
-      },
-      {
-        "epoch": 12,
-        "loss": 0.1497999070386032,
-        "train_acc": 0.43,
-        "test_acc": 0.5,
-        "time": 501.15468120900914
-      },
-      {
-        "epoch": 13,
-        "loss": 0.15706713307242187,
-        "train_acc": 0.43,
-        "test_acc": 0.5,
-        "time": 501.805493953987
-      },
-      {
-        "epoch": 14,
-        "loss": 0.15162537390197764,
-        "train_acc": 0.43,
-        "test_acc": 0.5,
-        "time": 504.6345072609838
-      },
-      {
-        "epoch": 15,
-        "loss": 0.14257318854026987,
-        "train_acc": 0.57,
-        "test_acc": 0.49,
-        "time": 545.3640645260457
-      },
-      {
-        "epoch": 16,
-        "loss": 0.14023755433156326,
-        "train_acc": 0.57,
-        "test_acc": 0.49,
-        "time": 501.75689787906595
-      },
-      {
-        "epoch": 17,
-        "loss": 0.12949921450449037,
-        "train_acc": 0.57,
-        "test_acc": 0.49,
-        "time": 500.9062480380526
-      },
-      {
-        "epoch": 18,
-        "loss": 0.14117668452685284,
-        "train_acc": 0.57,
-        "test_acc": 0.49,
-        "time": 500.23968625906855
-      },
-      {
-        "epoch": 19,
-        "loss": 0.1301335293456244,
-        "train_acc": 0.57,
-        "test_acc": 0.49,
-        "time": 500.37749696697574
-      },
-      {
-        "epoch": 20,
-        "loss": 0.1260752456580982,
-        "train_acc": 0.52,
-        "test_acc": 0.475,
-        "time": 498.3778850090457
-      }
-    ]
+  "significance": {
+    "classical_vs_quantum": {
+      "t_stat": 1.199269365885826,
+      "p_value": 0.2966055426141289,
+      "cohens_d": 0.5363295650907548,
+      "mean_diff": 0.019000000000000017,
+      "significant": false,
+      "n": 5,
+      "not_computed": false
+    }
   }
 }
