@@ -24,6 +24,12 @@ logger = logging.getLogger(__name__)
 
 CONFIG_DIR = Path(__file__).resolve().parent.parent.parent / "config"
 
+# Fail-closed allowlist (Spec F4): only these devices and diff methods may be
+# used. Anything outside raises ValueError, both at config load and device
+# creation time.
+ALLOWED_DEVICES = frozenset({"default.qubit", "lightning.qubit", "lightning.gpu"})
+ALLOWED_DIFF_METHODS = frozenset({"backprop", "adjoint", "parameter-shift"})
+
 
 @dataclass
 class QuantumDeviceStats:
@@ -72,7 +78,7 @@ class QuantumBackendManager:
     def __init__(self, config_path: Optional[Path] = None):
         self._configs: dict[str, BackendConfig] = {}
         self._active_backend: str = "default_qubit"
-        self._device_cache: dict[str, qml.Device] = {}
+        self._device_cache: dict[tuple[str, int], qml.Device] = {}
         self._stats = QuantumDeviceStats()
 
         # Resource limits
@@ -93,25 +99,84 @@ class QuantumBackendManager:
     # ------------------------------------------------------------------
 
     def _load_config(self, path: Path) -> None:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             raw = yaml.safe_load(f)
 
-        for name, cfg in raw.get("backends", {}).items():
-            self._configs[name] = BackendConfig(
-                device=cfg["device"],
-                max_qubits=cfg.get("max_qubits", 20),
-                supports_gradients=cfg.get("supports_gradients", True),
-                diff_method=cfg.get("diff_method", "backprop"),
-                description=cfg.get("description", ""),
+        if raw is None:
+            raise ValueError(
+                f"Empty quantum backend YAML in {path}; "
+                f"file exists but contains no mapping"
+            )
+        if not isinstance(raw, dict):
+            raise ValueError(
+                f"Invalid quantum backend YAML in {path}; "
+                f"expected a mapping, got {type(raw).__name__}"
             )
 
-        self._active_backend = raw.get("active_backend", "default_qubit")
+        backends = raw.get("backends")
+        if backends is None:
+            backends = {}
+        if not isinstance(backends, dict):
+            raise ValueError(
+                f"Invalid 'backends' in {path}; "
+                f"expected a mapping, got {type(backends).__name__}"
+            )
 
-        limits = raw.get("resource_limits", {})
-        self._max_qubits = limits.get("max_qubits", 20)
-        self._max_circuit_depth = limits.get("max_circuit_depth", 100)
-        self._max_memory_gb = limits.get("max_quantum_memory_gb", 8.0)
-        self._cache_size = limits.get("circuit_cache_size", 500)
+        for name, cfg in backends.items():
+            if not isinstance(cfg, dict):
+                raise ValueError(
+                    f"Backend config {name!r} must be a mapping, "
+                    f"got {type(cfg).__name__}"
+                )
+            try:
+                device = cfg["device"]
+                max_qubits = cfg.get("max_qubits", 20)
+                if not isinstance(max_qubits, int) or isinstance(max_qubits, bool):
+                    raise TypeError(
+                        f"max_qubits must be an int, got {type(max_qubits).__name__}"
+                    )
+                bc = BackendConfig(
+                    device=device,
+                    max_qubits=max_qubits,
+                    supports_gradients=cfg.get("supports_gradients", True),
+                    diff_method=cfg.get("diff_method", "backprop"),
+                    description=cfg.get("description", ""),
+                )
+            except (KeyError, TypeError) as exc:
+                raise ValueError(
+                    f"Invalid backend config {name!r}: {exc}"
+                ) from exc
+            self._validate_allowlist(bc)
+            self._configs[name] = bc
+
+        self._active_backend = raw.get("active_backend", "default_qubit")
+        if self._active_backend not in self._configs:
+            raise ValueError(
+                f"active_backend {self._active_backend!r} not in loaded configs: "
+                f"{sorted(self._configs)}"
+            )
+
+        limits = raw.get("resource_limits")
+        if limits is None:
+            limits = {}
+        if not isinstance(limits, dict):
+            raise ValueError(
+                f"Invalid 'resource_limits' in {path}; "
+                f"expected a mapping, got {type(limits).__name__}"
+            )
+        def _limit(name: str, default: int | float, kinds: tuple[type, ...]) -> int | float:
+            value = limits.get(name, default)
+            if isinstance(value, bool) or not isinstance(value, kinds):
+                raise ValueError(
+                    f"resource_limits.{name} must be {kinds}, "
+                    f"got {type(value).__name__}"
+                )
+            return value
+
+        self._max_qubits = _limit("max_qubits", 20, (int,))
+        self._max_circuit_depth = _limit("max_circuit_depth", 100, (int,))
+        self._max_memory_gb = _limit("max_quantum_memory_gb", 8.0, (int, float))
+        self._cache_size = _limit("circuit_cache_size", 500, (int,))
 
         logger.info(
             "Loaded quantum backends: %s (active: %s)",
@@ -120,14 +185,33 @@ class QuantumBackendManager:
         )
 
     def _register_defaults(self) -> None:
-        self._configs["default_qubit"] = BackendConfig(
+        bc = BackendConfig(
             device="default.qubit",
             max_qubits=23,
             supports_gradients=True,
             diff_method="backprop",
             description="PennyLane default statevector simulator",
         )
+        self._validate_allowlist(bc)
+        self._configs["default_qubit"] = bc
         self._active_backend = "default_qubit"
+
+    @staticmethod
+    def _validate_allowlist(cfg: BackendConfig) -> None:
+        """Fail-closed: reject device/diff method outside the allowlist."""
+        if not isinstance(cfg.device, str) or cfg.device not in ALLOWED_DEVICES:
+            raise ValueError(
+                f"Disallowed quantum device {cfg.device!r}; "
+                f"allowed: {sorted(ALLOWED_DEVICES)}"
+            )
+        if (
+            not isinstance(cfg.diff_method, str)
+            or cfg.diff_method not in ALLOWED_DIFF_METHODS
+        ):
+            raise ValueError(
+                f"Disallowed diff method {cfg.diff_method!r}; "
+                f"allowed: {sorted(ALLOWED_DIFF_METHODS)}"
+            )
 
     # ------------------------------------------------------------------
     # Device Management
@@ -145,6 +229,7 @@ class QuantumBackendManager:
         cfg = self._configs.get(backend)
         if cfg is None:
             raise ValueError(f"Unknown backend: {backend!r}")
+        self._validate_allowlist(cfg)
 
         if n_wires > cfg.max_qubits:
             raise ValueError(

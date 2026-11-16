@@ -2,7 +2,7 @@
 Fast Quantum Simulator (NumPy)
 ===============================
 Lightweight statevector simulator using direct tensor operations.
-~14x faster than PennyLane's default.qubit for small circuits (6 qubits)
+Fast numpy quantum simulator for small circuits (informational speedup vs PennyLane QNode; no speedup assertion)
 while remaining fully autograd-differentiable.
 """
 

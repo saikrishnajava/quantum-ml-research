@@ -48,13 +48,13 @@ MODEL_CONFIGS = {
             "attention_qubits": 6,
         },
     },
-    "moe_6_9_12": {
+    "moe_6_9": {  # 6q + 9q experts; 12q excluded (12-qubit expert returns NaN on CPU sim, see RUN_LOG Run 4/8)
         "quantum_heads_per_layer": 1,
         "quantum": {
             "use_quantum_embedding": False,
             "use_quantum_activation": False,
             "use_moe": True,
-            "moe_qubit_configs": [6, 9, 12],
+            "moe_qubit_configs": [6, 9],  # 12q omitted: 12-qubit expert yields NaN
             "moe_temperature": 1.0,
         },
     },
@@ -189,10 +189,23 @@ def run_task(
     """
     if seeds is None:
         seeds = SEEDS[: task_config.n_seeds]
+    # Degenerate-guard: CI and paired significance need >= 2 seeds.
+    # With fewer, mark not-computed and do not report the degenerate p=1.0.
+    # NOTE (n>=5 gate): a *significance claim* requires N>=5 seeds; CI stays
+    # computable at n>=2 — do not raise the computable threshold (the n=2
+    # computable path must remain intact).
+    computable = len(seeds) >= 2
+    # Duplicate-loop note: per-seed data is regenerated inside the (model,
+    # seed) loop, so the same seed yields identical data across models
+    # (intentional per-model isolation, not a bug).
+    logger.info(
+        "Seeds used: %s (default SEEDS=%s, n=%d, computable=%s)",
+        seeds, SEEDS, len(seeds), computable,
+    )
 
     models_to_run = list(task_config.models)
-    if skip_moe and "moe_6_9_12" in models_to_run:
-        models_to_run.remove("moe_6_9_12")
+    if skip_moe and "moe_6_9" in models_to_run:
+        models_to_run.remove("moe_6_9")
 
     all_results = {}
 
@@ -224,18 +237,28 @@ def run_task(
                       f"time={result['total_time_s']:.1f}s")
 
             test_accs = [r["final_test_acc"] for r in seed_results]
-            ci = confidence_interval(test_accs)
+            if computable:
+                ci = confidence_interval(test_accs)
+                ci_95 = [ci["ci_low"], ci["ci_high"]]
+                std = ci["std"]
+                mean_test_acc = ci["mean"]
+            else:
+                # Not enough seeds to compute CI / significance — mark not-computed.
+                ci_95 = [None, None]
+                std = None
+                mean_test_acc = float(test_accs[0]) if test_accs else 0.0
 
             model_results[model_name] = {
                 "seeds": seed_results,
-                "mean_test_acc": ci["mean"],
-                "ci_95": [ci["ci_low"], ci["ci_high"]],
-                "std": ci["std"],
-                "params": seed_results[0]["params"],
+                "mean_test_acc": mean_test_acc,
+                "ci_95": ci_95,
+                "std": std,
+                "computed": computable,
+                "params": seed_results[0]["params"] if seed_results else None,
             }
 
         significance = {}
-        if "classical" in model_results and "quantum_6q" in model_results:
+        if computable and "classical" in model_results and "quantum_6q" in model_results:
             c_accs = [r["final_test_acc"] for r in model_results["classical"]["seeds"]]
             q_accs = [r["final_test_acc"] for r in model_results["quantum_6q"]["seeds"]]
             significance["classical_vs_quantum"] = paired_significance(c_accs, q_accs)
@@ -266,8 +289,8 @@ def _print_comparison(sp_key: str, model_results: dict, significance: dict):
     print(f"\n  --- Results for {sp_key} ---")
     for name, data in model_results.items():
         ci = data["ci_95"]
-        print(f"    {name:15s}: acc={data['mean_test_acc']*100:.1f}% "
-              f"[{ci[0]*100:.1f}%, {ci[1]*100:.1f}%] "
+        ci_str = f"[{ci[0]*100:.1f}%, {ci[1]*100:.1f}]" if data.get("computed") else "not-computed"
+        print(f"    {name:15s}: acc={data['mean_test_acc']*100:.1f}% {ci_str} "
               f"params={data['params']['total']}")
 
     if "classical_vs_quantum" in significance:
@@ -281,18 +304,18 @@ def _print_comparison(sp_key: str, model_results: dict, significance: dict):
 def save_results(results: dict, filename: str):
     """Save results to JSON."""
     path = RESULTS_DIR / filename
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, default=_json_default)
     print(f"\nResults saved to {path}")
 
 
 def _json_default(obj):
+    if isinstance(obj, (bool, np.bool_)):
+        return bool(obj)
     if isinstance(obj, np.integer):
         return int(obj)
     if isinstance(obj, np.floating):
         return float(obj)
     if isinstance(obj, np.ndarray):
         return obj.tolist()
-    if isinstance(obj, (bool, np.bool_)):
-        return bool(obj)
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")

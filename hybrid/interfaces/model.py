@@ -58,6 +58,7 @@ class HybridTransformerBlock(Module):
                 n_heads=n_heads,
                 quantum_heads=quantum_heads,
                 quantum_qubits=quantum_config.get("attention_qubits", 6),
+                n_layers=quantum_config.get("quantum_n_layers", 2),
                 dropout=dropout,
             )
         self.norm2 = LayerNorm(d_model)
@@ -97,6 +98,7 @@ class HybridQuantumLLM(Module):
         max_seq_length: int = 128,
         dropout: float = 0.1,
         quantum_config: dict | None = None,
+        quantum_n_layers: int | None = None,
     ):
         if d_ff is None:
             d_ff = 4 * d_model
@@ -108,6 +110,8 @@ class HybridQuantumLLM(Module):
                 "activation_qubits": 4,
                 "use_quantum_activation": True,
             }
+        if quantum_n_layers is not None:
+            quantum_config["quantum_n_layers"] = quantum_n_layers
 
         self.d_model = d_model
         self.vocab_size = vocab_size

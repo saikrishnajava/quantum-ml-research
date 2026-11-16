@@ -16,10 +16,29 @@ import pennylane as qml
 import pennylane.numpy as pnp
 
 from classical.nn import Module, Parameter
+from quantum.backends.manager import get_backend_manager
 from quantum.simulator import (
     apply_gate, apply_cnot, amplitude_embed,
     pauli_z_expval, pauli_y_expval, _ry, _rz, _rx,
 )
+
+
+def parity_from_expectations(z_expectations) -> np.ndarray:
+    """Estimate a parity bit from per-qubit Pauli-Z expectations.
+
+    For a computational-basis state, ``sign(<Z_i>) = (-1)^{bit_i}``, so the
+    product of signs equals ``(-1)^{parity}``. A zero expectation maps to sign
+    +1 (bit 0) so ``sign(0)`` is never silently collapsed to parity 0
+    (Spec 26-36). Returns 0 for even parity, 1 for odd parity, evaluated along
+    the last axis.
+    """
+    z = np.asarray(z_expectations, dtype=float)
+    signs = np.sign(z)
+    # sign(0) == 0 silently zeroes the product and collapses parity to 0;
+    # map zero expectations to +1 (bit 0) so parity is not silently wrong.
+    signs = np.where(signs == 0, 1.0, signs)
+    prod = np.prod(signs, axis=-1)
+    return ((1 - prod) / 2).astype(int)
 
 
 def _pad_to_dim(vec, target_dim):
@@ -30,6 +49,21 @@ def _pad_to_dim(vec, target_dim):
     if pad_len > 0:
         return anp.concatenate([vec_slice, anp.zeros(pad_len)])
     return vec_slice
+
+
+def _zz_phase(theta, a: int, b: int, n: int) -> anp.ndarray:
+    """Phase vector of exp(-i theta/2 Z_a Z_b) over all 2**n basis states.
+
+    Z_a Z_b has eigenvalue +1 when bits a and b agree and -1 otherwise, so the
+    all-to-all collective ΣZZ entangler is permutation-symmetric (S_n-equivariant).
+    One layer applies n(n-1)/2 = O(n^2) IsingZZ gates sequentially; all terms
+    commute, so they are parallelizable in depth O(1). With reupload
+    (n_layers ~ n) total params are O(n^3) — cap n_qubits / n_layers to avoid
+    cubic parameter growth.
+    """
+    idx = np.arange(2 ** n)
+    same = ((idx >> a) & 1) == ((idx >> b) & 1)
+    return anp.where(same, anp.exp(-0.5j * theta), anp.exp(0.5j * theta))
 
 
 # ------------------------------------------------------------------
@@ -43,29 +77,40 @@ class QuantumFeatureMapCircuit(Module):
     feature transform.
     """
 
-    def __init__(self, n_qubits: int, n_layers: int = 2):
+    def __init__(self, n_qubits: int, n_layers: int | None = None,
+                 no_entanglement: bool = False):
         self.n_qubits = n_qubits
-        self.n_layers = n_layers
+        self.no_entanglement = no_entanglement
+        # Reupload: n_layers scales with the feature dimension (~ n_qubits).
+        self.n_layers = n_layers if n_layers is not None else max(1, n_qubits)
         self.state_dim = 2 ** n_qubits
 
-        self.device = qml.device("default.qubit", wires=n_qubits)
+        self.device = get_backend_manager().get_device(n_qubits)
         self._build_circuit()
 
-        n_params = n_qubits * n_layers * 2
+        n_zz = 0 if no_entanglement else n_qubits * (n_qubits - 1) // 2
+        n_params = self.n_layers * (2 + n_zz)
         self.params = Parameter(np.random.randn(n_params) * 0.1)
 
     def _build_circuit(self):
-        @qml.qnode(self.device, interface="autograd", diff_method="backprop")
+        @qml.qnode(self.device, interface="autograd", diff_method=get_backend_manager().active_diff_method)
         def circuit(features, params):
             qml.AmplitudeEmbedding(features, wires=range(self.n_qubits), normalize=True)
             idx = 0
             for _ in range(self.n_layers):
+                # collective rotations: same angle on every qubit -> S_n-equivariant.
+                cry = params[idx]
+                crz = params[idx + 1]
+                idx += 2
                 for i in range(self.n_qubits):
-                    qml.RY(params[idx], wires=i)
-                    qml.RZ(params[idx + 1], wires=i)
-                    idx += 2
-                for i in range(self.n_qubits - 1):
-                    qml.CNOT(wires=[i, i + 1])
+                    qml.RY(cry, wires=i)
+                    qml.RZ(crz, wires=i)
+                # all-to-all collective SigmaZZ: permutation-symmetric entangler.
+                if not self.no_entanglement:
+                    for i in range(self.n_qubits):
+                        for j in range(i + 1, self.n_qubits):
+                            qml.IsingZZ(params[idx], wires=[i, j])
+                            idx += 1
             return [qml.expval(qml.PauliZ(i)) for i in range(self.n_qubits)]
 
         self._circuit = circuit
@@ -78,13 +123,23 @@ class QuantumFeatureMapCircuit(Module):
             padded = _pad_to_dim(vec, self.state_dim)
             state = amplitude_embed(padded, self.n_qubits)
             idx = 0
+            n = self.n_qubits
             for _ in range(self.n_layers):
-                for i in range(self.n_qubits):
-                    state = apply_gate(state, _ry(self.params[idx]), i, self.n_qubits)
-                    state = apply_gate(state, _rz(self.params[idx + 1]), i, self.n_qubits)
-                    idx += 2
-                for i in range(self.n_qubits - 1):
-                    state = apply_cnot(state, i, i + 1, self.n_qubits)
+                # collective rotations: same angle on every qubit -> S_n-equivariant.
+                cry = self.params[idx]
+                crz = self.params[idx + 1]
+                idx += 2
+                for i in range(n):
+                    state = apply_gate(state, _ry(cry), i, n)
+                    state = apply_gate(state, _rz(crz), i, n)
+                # all-to-all collective SigmaZZ: permutation-symmetric entangler; O(n^2) ZZ gates
+                # per layer, applied sequentially (terms commute -> parallelizable in depth O(1)).
+                # Cap n_qubits/n_layers: with reupload params scale O(n^3).
+                if not self.no_entanglement:
+                    for i in range(n):
+                        for j in range(i + 1, n):
+                            state = state * _zz_phase(self.params[idx], i, j, n)
+                            idx += 1
             outputs.append(anp.array([pauli_z_expval(state, i, self.n_qubits)
                                        for i in range(self.n_qubits)]))
         return anp.stack(outputs).reshape(*original_shape, self.n_qubits)
@@ -103,12 +158,12 @@ class QuantumPositionalCircuit(Module):
     def __init__(self, n_qubits: int, max_positions: int = 2048):
         self.n_qubits = n_qubits
         self.max_positions = max_positions
-        self.device = qml.device("default.qubit", wires=n_qubits)
+        self.device = get_backend_manager().get_device(n_qubits)
         self._build_circuit()
         self.params = Parameter(np.random.randn(n_qubits * 2) * 0.5)
 
     def _build_circuit(self):
-        @qml.qnode(self.device, interface="autograd", diff_method="backprop")
+        @qml.qnode(self.device, interface="autograd", diff_method=get_backend_manager().active_diff_method)
         def circuit(position_bits, params):
             for i in range(self.n_qubits):
                 qml.RX(np.pi * position_bits[i], wires=i)
@@ -158,12 +213,17 @@ class QuantumAttentionCircuit(Module):
     """
     Quantum attention: computes Q-K similarity and applies it to V.
 
-    Mechanism:
-      1. Encode Q, K, V into separate qubit registers
-      2. CNOT(Q, K) computes |Q⟩|K⊕Q⟩ — when Q≈K, K-register → |0⟩
-      3. Controlled rotations from K to V transfer the similarity signal
-      4. Trainable refinement on V-register preserves the Q-K→V structure
-      5. Undo Q-K CNOT to reset K for next layer
+    Mechanism (matches _build_circuit :289-306, _forward_fast_sim :331-367):
+      1. Amplitude-embed Q, K, V into separate qubit registers
+         (qml.AmplitudeEmbedding, normalize=True).
+      2. CNOT(Q->K) then CNOT(K->V): basis-state XOR only
+         (|q>|k> -> |q>|k(+)q>); for amplitude-encoded superpositions
+         this entangles registers, not a |0> reset when Q~=K.
+      3. No K-controlled rotations: V-local trainable rotations only
+         (collective RY/RZ with shared angles + all-to-all IsingZZ
+         on V-register, :292-303).
+      4. Trainable refinement on V-register preserves the Q-K->V structure
+      5. Undo Q-K CNOT to reset K basis correlation for next layer
       6. Measure PauliZ on V-register
 
     Backend selection:
@@ -186,7 +246,7 @@ class QuantumAttentionCircuit(Module):
         self._build_circuit()
 
         qpr = self.qubits_per_register
-        n_params = n_layers * (qpr + qpr * 2)
+        n_params = n_layers * (2 + qpr * (qpr - 1) // 2)
         self.params = Parameter(np.random.randn(n_params) * 0.5)
 
     @staticmethod
@@ -230,19 +290,23 @@ class QuantumAttentionCircuit(Module):
 
             idx = 0
             for layer in range(self.n_layers):
+                # Q-K / K-V coupling (structure preserved, no trainable params).
                 for i in range(qpr):
                     qml.CNOT(wires=[q_wires[i], k_wires[i]])
-                for i in range(qpr):
                     qml.CNOT(wires=[k_wires[i], v_wires[i]])
-                    qml.RY(params[idx], wires=v_wires[i])
-                    qml.CNOT(wires=[k_wires[i], v_wires[i]])
-                    idx += 1
+                # collective rotations on v register: same angle on every qubit -> S_n-equivariant.
+                cry = params[idx]
+                crz = params[idx + 1]
+                idx += 2
                 for i in range(qpr):
-                    qml.RY(params[idx], wires=v_wires[i])
-                    qml.RZ(params[idx + 1], wires=v_wires[i])
-                    idx += 2
-                for i in range(qpr - 1):
-                    qml.CNOT(wires=[v_wires[i], v_wires[i + 1]])
+                    qml.RY(cry, wires=v_wires[i])
+                    qml.RZ(crz, wires=v_wires[i])
+                # all-to-all collective SigmaZZ on v register: permutation-symmetric entangler.
+                for i in range(qpr):
+                    for j in range(i + 1, qpr):
+                        qml.IsingZZ(params[idx], wires=[v_wires[i], v_wires[j]])
+                        idx += 1
+                # undo Q-K CNOT to reset K for the next layer.
                 for i in range(qpr):
                     qml.CNOT(wires=[q_wires[i], k_wires[i]])
 
@@ -283,20 +347,27 @@ class QuantumAttentionCircuit(Module):
         v_wires = list(range(2 * qpr, 3 * qpr))
 
         idx = 0
+        n = self.n_qubits
         for layer in range(self.n_layers):
+            # Q-K / K-V coupling (structure preserved, no trainable params).
             for i in range(qpr):
                 state = apply_cnot(state, q_wires[i], k_wires[i], n)
-            for i in range(qpr):
                 state = apply_cnot(state, k_wires[i], v_wires[i], n)
-                state = apply_gate(state, _ry(self.params[idx]), v_wires[i], n)
-                state = apply_cnot(state, k_wires[i], v_wires[i], n)
-                idx += 1
+            # collective rotations on v register: same angle on every qubit -> S_n-equivariant.
+            cry = self.params[idx]
+            crz = self.params[idx + 1]
+            idx += 2
             for i in range(qpr):
-                state = apply_gate(state, _ry(self.params[idx]), v_wires[i], n)
-                state = apply_gate(state, _rz(self.params[idx + 1]), v_wires[i], n)
-                idx += 2
-            for i in range(qpr - 1):
-                state = apply_cnot(state, v_wires[i], v_wires[i + 1], n)
+                state = apply_gate(state, _ry(cry), v_wires[i], n)
+                state = apply_gate(state, _rz(crz), v_wires[i], n)
+            # all-to-all collective SigmaZZ on v register: permutation-symmetric entangler; O(n^2) ZZ gates
+            # per layer, applied sequentially (terms commute -> parallelizable in depth O(1)).
+            # Cap n_qubits/n_layers: with reupload params scale O(n^3).
+            for i in range(qpr):
+                for j in range(i + 1, qpr):
+                    state = state * _zz_phase(self.params[idx], v_wires[i], v_wires[j], n)
+                    idx += 1
+            # undo Q-K CNOT to reset K for the next layer.
             for i in range(qpr):
                 state = apply_cnot(state, q_wires[i], k_wires[i], n)
 
@@ -310,15 +381,16 @@ class QuantumAttentionCircuit(Module):
 class QuantumActivationCircuit(Module):
     """Short variational circuit acting as a learnable non-linear activation."""
 
-    def __init__(self, n_qubits: int = 4, n_layers: int = 1):
+    def __init__(self, n_qubits: int = 4, n_layers: int | None = None):
         self.n_qubits = n_qubits
-        self.n_layers = n_layers
+        # Reupload: n_layers scales with the input dimension (~ n_qubits).
+        self.n_layers = n_layers if n_layers is not None else max(1, n_qubits)
         self.state_dim = 2 ** n_qubits
 
         self.device = qml.device("default.qubit", wires=n_qubits)
         self._build_circuit()
 
-        n_params = n_qubits * n_layers * 2
+        n_params = self.n_layers * (2 + n_qubits * (n_qubits - 1) // 2)
         self.params = Parameter(np.random.randn(n_params) * 0.1)
 
     def _build_circuit(self):
@@ -326,13 +398,20 @@ class QuantumActivationCircuit(Module):
         def circuit(features, params):
             qml.AmplitudeEmbedding(features, wires=range(self.n_qubits), normalize=True)
             idx = 0
+            n = self.n_qubits
             for _ in range(self.n_layers):
-                for i in range(self.n_qubits):
-                    qml.RY(params[idx], wires=i)
-                    qml.RZ(params[idx + 1], wires=i)
-                    idx += 2
-                for i in range(self.n_qubits):
-                    qml.CNOT(wires=[i, (i + 1) % self.n_qubits])
+                # collective rotations: same angle on every qubit -> S_n-equivariant.
+                cry = params[idx]
+                crz = params[idx + 1]
+                idx += 2
+                for i in range(n):
+                    qml.RY(cry, wires=i)
+                    qml.RZ(crz, wires=i)
+                # all-to-all collective SigmaZZ: permutation-symmetric entangler.
+                for i in range(n):
+                    for j in range(i + 1, n):
+                        qml.IsingZZ(params[idx], wires=[i, j])
+                        idx += 1
             return [qml.expval(qml.PauliZ(i)) for i in range(self.n_qubits)]
 
         self._circuit = circuit
@@ -341,12 +420,21 @@ class QuantumActivationCircuit(Module):
         padded = _pad_to_dim(features, self.state_dim)
         state = amplitude_embed(padded, self.n_qubits)
         idx = 0
+        n = self.n_qubits
         for _ in range(self.n_layers):
-            for i in range(self.n_qubits):
-                state = apply_gate(state, _ry(self.params[idx]), i, self.n_qubits)
-                state = apply_gate(state, _rz(self.params[idx + 1]), i, self.n_qubits)
-                idx += 2
-            for i in range(self.n_qubits):
-                state = apply_cnot(state, i, (i + 1) % self.n_qubits, self.n_qubits)
+            # collective rotations: same angle on every qubit -> S_n-equivariant.
+            cry = self.params[idx]
+            crz = self.params[idx + 1]
+            idx += 2
+            for i in range(n):
+                state = apply_gate(state, _ry(cry), i, n)
+                state = apply_gate(state, _rz(crz), i, n)
+            # all-to-all collective SigmaZZ: permutation-symmetric entangler; O(n^2) ZZ gates
+            # per layer, applied sequentially (terms commute -> parallelizable in depth O(1)).
+            # Cap n_qubits/n_layers: with reupload params scale O(n^3).
+            for i in range(n):
+                for j in range(i + 1, n):
+                    state = state * _zz_phase(self.params[idx], i, j, n)
+                    idx += 1
         return anp.array([pauli_z_expval(state, i, self.n_qubits)
                            for i in range(self.n_qubits)])

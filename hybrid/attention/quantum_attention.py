@@ -29,6 +29,7 @@ class QuantumMultiHeadAttention(Module):
         quantum_heads: int = 1,
         quantum_qubits: int = 6,
         dropout: float = 0.1,
+        n_layers: int = 2,
         max_quantum_seq: int = 16,
     ):
         assert d_model % n_heads == 0
@@ -48,7 +49,7 @@ class QuantumMultiHeadAttention(Module):
         if self.quantum_heads > 0:
             assert quantum_qubits % 3 == 0
             self.quantum_circuits = [
-                QuantumAttentionCircuit(quantum_qubits, n_layers=2)
+                QuantumAttentionCircuit(quantum_qubits, n_layers=n_layers)
                 for _ in range(self.quantum_heads)
             ]
             register_dim = quantum_qubits // 3
@@ -89,11 +90,12 @@ class QuantumMultiHeadAttention(Module):
                 seq_outputs.append(projected)
 
             if seq_len > max_qs:
+                # Remainder queries attend the FULL prefix (positions 0..max_qs-1)
+                # plus the remainder itself, removing the truncation bias that
+                # occurred when S > max_quantum_seq (Spec M2-1).
                 rem_q = q[b, max_qs:]
-                rem_k = k[b, max_qs:]
-                rem_v = v[b, max_qs:]
-                attn_w = self.softmax((rem_q @ rem_k.T) / self.scale)
-                classical_out = attn_w @ rem_v
+                attn_w = self.softmax((rem_q @ k[b].T) / self.scale)
+                classical_out = attn_w @ v[b]
                 for s in range(classical_out.shape[0]):
                     seq_outputs.append(classical_out[s])
 

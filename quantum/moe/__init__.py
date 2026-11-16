@@ -23,7 +23,8 @@ class QubitRouter(Module):
 
     def forward(self, x):
         """
-        x: (batch, seq, d_model) → gate_probs: (batch, n_experts)
+        x: (batch, seq, d_model) → raw gate logits: (batch, n_experts)
+        (pre-softmax; apply Softmax / gumbel_softmax for probabilities)
         """
         pooled = x.mean(axis=1)
         return self.gate(pooled)

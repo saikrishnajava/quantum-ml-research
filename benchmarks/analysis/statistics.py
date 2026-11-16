@@ -38,7 +38,8 @@ def paired_significance(
     """Paired t-test with Cohen's d effect size."""
     baseline = np.asarray(baseline_values, dtype=float)
     treatment = np.asarray(treatment_values, dtype=float)
-    assert len(baseline) == len(treatment), "Must have same number of seeds"
+    if len(baseline) != len(treatment):
+        raise ValueError("Must have same number of seeds")
 
     diff = treatment - baseline
     n = len(diff)
@@ -50,6 +51,8 @@ def paired_significance(
             "cohens_d": 0.0,
             "mean_diff": float(np.mean(diff)),
             "significant": False,
+            "n": n,
+            "not_computed": True,
         }
 
     t_stat, p_value = stats.ttest_rel(treatment, baseline)
@@ -60,7 +63,9 @@ def paired_significance(
         "p_value": float(p_value),
         "cohens_d": cohens_d,
         "mean_diff": float(np.mean(diff)),
-        "significant": p_value < 0.05,
+        "significant": bool(p_value < 0.05),
+        "n": n,
+        "not_computed": False,
     }
 
 
@@ -79,10 +84,15 @@ def summarize_results(results: dict) -> str:
 
             sig = scaling_data.get("significance", {}).get("classical_vs_quantum", {})
             p_val = sig.get("p_value", 1.0)
-            significant = sig.get("significant", False)
+            significant = sig.get("significant") is True
 
             q_str = f"{quantum_acc*100:.1f}%{'*' if significant else ''}"
-            winner = "Quantum" if significant and quantum_acc > classical_acc else "Classical"
+            if significant and quantum_acc > classical_acc:
+                winner = "Quantum"
+            elif not significant:
+                winner = "Tie"
+            else:
+                winner = "Classical"
 
             lines.append(
                 f"| {task_name} | {scaling_key} | {classical_acc*100:.1f}% | "
