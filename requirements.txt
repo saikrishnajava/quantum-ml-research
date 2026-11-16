@@ -1,22 +1,18 @@
-# Core Quantum Framework
-pennylane>=0.39.0
-pennylane-lightning>=0.39.0
+# Core Quantum Framework (pinned to ceilings from pyproject.toml :14-18)
+pennylane==0.39.0          # >=0.39.0,<0.45
+pennylane-lightning==0.39.0  # >=0.39.0,<0.45
 
-# Scientific Computing
-numpy>=1.24.0
-scipy>=1.11.0
+# Scientific Computing (pinned to ceilings from pyproject.toml :14-18)
+numpy==1.24.0              # >=1.24.0,<2
+scipy==1.11.0              # >=1.11.0,<2
+autograd==1.8.0            # >=1.8,<2 (T1: explicit pin; classical/nn.py anp usage, venv truth)
 
-# Configuration
-pyyaml>=6.0
+# Configuration (pinned to ceilings from pyproject.toml :14-18)
+pyyaml==6.0                # >=6.0,<7
 
-# Testing
-pytest>=7.4.0
-pytest-benchmark>=4.0.0
+# Testing (pyproject.toml :22-23 pytest>=7.4.0,<9; pinned ==7.4.0)
+pytest==7.4.0
+pytest-benchmark==4.0.0
 
-# Optional: GPU acceleration
-# pennylane-lightning-gpu
-
-# Optional: PyTorch integration (if available)
-# torch>=2.0.0
-# transformers>=4.35.0
-# langchain>=0.1.0
+# GPU acceleration (cuStateVec CUDA 12 backend)
+custatevec-cu12==1.15.1

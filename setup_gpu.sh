@@ -1,8 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Setup script for Linux + NVIDIA GPU (P2200 / CUDA)
 # Run: bash setup_gpu.sh
 
-set -e
+set -euo pipefail
+
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+VENV_DIR="${PROJECT_DIR}/.venv"
+PIP="${VENV_DIR}/bin/pip"
 
 echo "=== Quantum LLM Agent — GPU Setup ==="
 
@@ -28,19 +32,27 @@ fi
 # 3. Create venv
 echo ""
 echo "--- Setting up Python environment ---"
-python3 -m venv .venv
-source .venv/bin/activate
+if [ ! -d "$VENV_DIR" ]; then
+    python3.12 -m venv "$VENV_DIR"
+else
+    echo "Virtual environment exists."
+fi
+source "$VENV_DIR/bin/activate"
 
 # 4. Install dependencies
 echo ""
 echo "--- Installing dependencies ---"
-pip install --upgrade pip
-pip install pennylane pennylane-lightning numpy scipy pyyaml pytest
+# pip is not upgraded here (out-of-band): see setup.sh for rationale.
+# Upgrade out-of-band if needed: python -m pip install --upgrade pip
 
 # 5. Install GPU acceleration
 echo ""
 echo "--- Installing GPU acceleration (pennylane-lightning-gpu) ---"
-pip install pennylane-lightning[gpu] custatevec-cu12 || {
+# Lock: pins match pyproject.toml (pennylane<0.45, lightning<0.45,
+# numpy<2, scipy<2, pyyaml<7, custatevec-cu12==1.15.1); do not relax
+# without updating pyproject.toml.
+# Equivalent hashed install: pip install --require-hashes -r requirements.lock
+"$PIP" install --require-hashes -r "$PROJECT_DIR/requirements.lock" || {
     echo ""
     echo "WARNING: GPU packages failed to install."
     echo "Falling back to CPU lightning.qubit (still fast, uses adjoint)."

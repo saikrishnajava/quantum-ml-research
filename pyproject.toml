@@ -1,24 +1,27 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+requires = ["setuptools>=68.0,<84", "wheel<1"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "quantum-llm-agent"
 version = "0.1.0"
-description = "World's First Quantum-Simulated LLM with Agentic Workflows"
+description = "Quantum-simulated LLM agentic workflows"
 requires-python = ">=3.10"
 license = {text = "Proprietary - All Rights Reserved"}
 dependencies = [
-    "pennylane>=0.39.0",
-    "pennylane-lightning>=0.39.0",
-    "numpy>=1.24.0",
-    "scipy>=1.11.0",
-    "pyyaml>=6.0",
+    # Pins: <0.45 ceilings on pennylane/lightning per RUN_LOG 0.44.1 truth;
+    # compatible ceilings on numpy/scipy/pyyaml to hold open upper bounds.
+    "pennylane>=0.39.0,<0.45",
+    "pennylane-lightning>=0.39.0,<0.45",
+    "numpy>=1.24.0,<2",
+    "scipy>=1.11.0,<2",
+    "pyyaml>=6.0,<7",
+    "autograd>=1.8,<2",
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=7.4.0", "pytest-benchmark>=4.0.0"]
-dev = ["pytest>=7.4.0", "pytest-benchmark>=4.0.0"]
+test = ["pytest>=7.4.0,<9", "pytest-benchmark>=4.0.0,<5", "custatevec-cu12==1.15.1"]
+dev = ["pytest>=7.4.0,<9", "pytest-benchmark>=4.0.0,<5", "custatevec-cu12==1.15.1"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

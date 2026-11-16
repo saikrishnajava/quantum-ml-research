@@ -20,19 +20,23 @@ echo "========================================"
 # 1. Create virtual environment
 if [ ! -d "$VENV_DIR" ]; then
     echo "[1/4] Creating virtual environment..."
-    python3 -m venv "$VENV_DIR"
+    python3.12 -m venv "$VENV_DIR"
 else
     echo "[1/4] Virtual environment exists."
 fi
 
-# 2. Upgrade pip
-echo "[2/4] Upgrading pip..."
-"$PIP" install --upgrade pip --quiet
+# 2. pip
+# pip is not upgraded here (out-of-band): upgrading inside setup pins the
+# environment to a specific pip version that may drift from requirements.lock.
+# Upgrade out-of-band if needed: python -m pip install --upgrade pip
+echo "[2/4] Pip ready."
 
 # 3. Install dependencies
 echo "[3/4] Installing dependencies..."
-"$PIP" install -e "${PROJECT_DIR}" --quiet
-"$PIP" install pytest --quiet
+# Lock: pins match pyproject.toml (pennylane<0.45, lightning<0.45,
+# numpy<2, scipy<2, pyyaml<7); do not relax without updating pyproject.toml.
+# Equivalent hashed install: pip install --require-hashes -r requirements.lock
+"$PIP" install --require-hashes -r "$PROJECT_DIR/requirements.lock" --quiet
 
 # 4. Verify installation
 echo "[4/4] Verifying installation..."
