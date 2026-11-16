@@ -141,3 +141,36 @@ Expected HEAD: `1587497de77d33942a045b091aaded1ef45b5785`. If mismatch, stop and
 
 ## Next (post-v5: stop-or-writeup)
 - Next: write-up or stop (no further experiments without fresh approval).
+
+## Current (2026-11-17 evidence repair Task3 — STATE entry, branch research/audit-1587497 @ a3addab)
+- Date (UTC): 2026-11-16T03:33:20Z (repair ledger date 2026-11-17).
+- Branch: `research/audit-1587497` @ `a3addab` (`a3addab83791b9b2c39e8bb05a12e74fb1444f66`), local-only.
+- Pointers: `research/EVIDENCE_REPAIR.md` (rows 1-8 bank) + `research/FINAL_ASSESSMENT.md:206-220` superseding 2026-11-17 section (authoritative, priors v1-v5 preserved).
+- Auth: mission autonomous Phase1 (2026-11-16 "Continue work on..."); docs-audit only, append-only.
+- No push / no rebase / no history rewrite; no new experiments; confirmatory run-once locks preserved (do NOT re-run).
+- Spec: `docs/specs/2026-11-15-parity-guards-pivot.md`; Plan: `docs/plans/2026-11-17-evidence-repair.md` approved row 3.
+- Touched (this task): `research/STATE.md` only (append).
+- Next: Phase2 fail-closed runner (replace `docs/verify-track-c.sh` fail-open `|| true` with fail-closed `set -euo pipefail`).
+
+## Current (2026-11-16 actual-model smoke closeout — STATE entry, branch research/audit-1587497 @ a3addab)
+- Date (UTC): 2026-11-16. Branch: `research/audit-1587497` @ `a3addab` (`a3addab83791b9b2c39e8bb05a12e74fb1444f66`), local-only.
+- Auth: mission Phase7 autonomous. Scope: append-only to `research/FINAL_ASSESSMENT.md` + `research/STATE.md` + handoff pointer in `docs/plans/2026-11-17-actual-repro-progress.md`; no code/artifact edits, no secrets, no push.
+- Pointers: `research/EVIDENCE_REPAIR.md` + v2 protocol `research/protocols/equality-actual-v2.json` (equality-actual-v2, frozen true, config_hash `e2a56245deea3ff12a3c15e46efa745c227788df5610cf89d15e1222c3e98d54`) + run4 raw `research/artifacts/equality-actual-v2/run4/raw.json` + run4 report `research/artifacts/equality-actual-v2/run4/report-t.json` + `docs/verify-actual.sh` + `docs/analyze-only.sh` + superseding section `research/FINAL_ASSESSMENT.md` (Superseding actual-model 2026-11-16).
+- Run4 recap: n_pairs=3 mean_diff -0.12 CI [-0.5939,0.3539] p 0.3897 t/exploratory small-n; overlap 0; positive 1.0; deterministic; no advantage claimed or shown.
+- Dirty list note: untracked new files only (verify/analyze scripts + progress/evidence), no tracked modifications, no push; local-only.
+- Touched (this task): `research/FINAL_ASSESSMENT.md`, `research/STATE.md`, `docs/plans/2026-11-17-actual-repro-progress.md` only (append).
+- Next: stop (milestone met, no further experiments without fresh direction).
+
+## Current (2026-11-16 actual-model milestone — final handoff, branch research/audit-1587497 @ a3addab)
+- Task/phase identity: mission 2026-11-16 actual-model milestone (Auth mission Phase7 autonomous).
+- Authorization: mission autonomous (local-only; scope-locked).
+- Verified work: 8 verdicts banked; runner 7/7; analyzer 9/9; correctness 11/11; protocol v2 frozen; run4 authoritative numbers (n_pairs=3 mean_diff=-0.12 CI [-0.5939,0.3539] p=0.3897 t/exploratory small-n, overlap 0, positive 1.0, deterministic); repro byte-identical (analyze-only report-t.json diff BYTE_IDENTICAL 1483B; repro predictions/targets bytes match run4, run_id prefix + duration_s differ only).
+- Exact next action: stop — milestone met, user push only (no further experiments without fresh direction).
+- Deadline: none (local).
+- Limits: tiny CPU (runner ~1.1s, verify ~2.2s, analyze ~0.8s), no spend, no sweeps/GPU/network, no secrets, no push.
+- In-flight: none (no background jobs, no training, no installs).
+- Deviations: run3 ID duplication fixed in run4 (fresh --run-id run-repro-<stamp>, authoritative run4 untouched); v1 untracked content-frozen (no tracked modifications, raw regenerable gitignored).
+- Allowed: review files (research/FINAL_ASSESSMENT.md, EVIDENCE_REPAIR.md, protocols/equality-actual-v2.json, run4 raw/report-t.json, docs/verify-actual.sh, docs/analyze-only.sh, progress/evidence files).
+- Forbidden: push, re-run confirmatory (run-once locks preserved), sweeps, code/artifact edits, secrets, history rewrite/rebase.
+- Source/config identities: branch `research/audit-1587497` @ `a3addab` (`a3addab83791b9b2c39e8bb05a12e74fb1444f66`); protocol equality-actual-v2 config_hash `e2a56245deea3ff12a3c15e46efa745c227788df5610cf89d15e1222c3e98d54`; seeds [101,202,303].
+- Touched (this task): `research/STATE.md` only (append).

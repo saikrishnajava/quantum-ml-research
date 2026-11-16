@@ -1,0 +1,96 @@
+{
+  "protocol": "equality-actual-v1",
+  "spec": "equality-actual-v1-R1-R6",
+  "frozen": true,
+  "frozen_at": "2026-11-16",
+  "branch": "research/audit-1587497",
+  "authorization": "mission Phase5 autonomous — actual experiment only (local-only, scope-locked, tiny CPU, no secrets, no push)",
+  "task": {
+    "spec_ref": "R1",
+    "generator": "generate_equality_sequence_decision",
+    "seq_len": 4,
+    "token_vocab": 4,
+    "n_actions": 2,
+    "n_rules": 1,
+    "n_train": 200,
+    "n_test": 50,
+    "objective": "last-position classification"
+  },
+  "parity": {
+    "spec_ref": "R2",
+    "same_inputs": true,
+    "context": "permitted-only",
+    "quantum_path": "token-local"
+  },
+  "splits": {
+    "spec_ref": "R3",
+    "unique_inputs": true,
+    "zero_overlap": true,
+    "train_size": 200,
+    "test_size": 50,
+    "overlap_tolerance": 0
+  },
+  "models": {
+    "spec_ref": "R4",
+    "A_classical": {
+      "kind": "classical",
+      "arch": "ClassicalDecisionMLP",
+      "variant": "tiny Hybrid with quantum_heads 0",
+      "role": "classical baseline"
+    },
+    "B_hybrid": {
+      "kind": "hybrid",
+      "arch": "HybridQuantumLLM",
+      "d_model": 16,
+      "n_layers": 1,
+      "n_heads": 2,
+      "quantum": "6q-1layer",
+      "role": "quantum candidate"
+    },
+    "C_controls": {
+      "positive": "tiny MLP, must-learn -> chance (sanity: learns on train, chance on held-out structure)",
+      "negative": "majority/shuffle (floor: majority vote and label-shuffle)"
+    }
+  },
+  "runner": {
+    "spec_ref": "R5",
+    "frozen": true,
+    "layout": "thin glue: parse protocol verbatim, run tiny-CPU experiment, write raw artifacts only",
+    "signatures": "main(argv: list[str]) -> int; run(protocol: dict) -> artifacts (pure, no I/O inside; I/O only at CLI boundary)",
+    "exit_map": {"0": "ok", "1": "run-failed", "2": "invalid/usage"},
+    "fail_closed": "malformed protocol, malformed splits, nonfinite values -> exit 2; task/parity/split/model mismatch -> non-zero; never silent 0",
+    "determinism": "fixed-seed rerun reproduces artifacts exactly",
+    "consumes_protocol_verbatim": true,
+    "no_network": true,
+    "no_protocol_mutation": true
+  },
+  "caps": {
+    "spec_ref": "R6",
+    "tiny_cpu_only": true,
+    "local_only": true,
+    "no_sweeps": true,
+    "no_spend": true,
+    "no_gpu": true,
+    "no_network": true,
+    "smoke_budget": "<5m",
+    "multi_seed": "bounded (exactly the frozen seed set, run-once per seed)",
+    "no_push": true,
+    "no_secrets": true
+  },
+  "seeds": [101, 202, 303],
+  "seed_provenance": "disjoint from all priors: confirmatory-lock [42,99,137], mag-fresh [11,33,55] (forbidden 6), pilots/other [7,21,123]. [101,202,303] collides with none; [11,33,55] NOT reused despite brief row-1 shorthand because mag already consumed it.",
+  "budget": {
+    "smoke": "<5m",
+    "multi_seed": "bounded, run-once per frozen seed"
+  },
+  "artifacts": "research/artifacts/equality-actual-v1/<run>/",
+  "artifact_policy": "raw artifacts only; analyzer path consumes runner artifacts only; no hand-made results; no embedded constants steering outcome",
+  "analysis": {
+    "method": "t",
+    "multiplicity": "exploratory",
+    "paired_only": true,
+    "unpaired_refused": true
+  },
+  "failure_policy": "fail-closed: any R1-R6 violation exits non-zero; malformed/nonfinite -> 2; run failure -> 1; record outcome, no silent pass",
+  "permitted_conclusions": "exploratory only; no confirmatory claim; no advantage claim; outcome recorded, not gated"
+}

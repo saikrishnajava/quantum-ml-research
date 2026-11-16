@@ -1,0 +1,13 @@
+{
+  "config_hash": "e2a56245deea3ff12a3c15e46efa745c227788df5610cf89d15e1222c3e98d54",
+  "duration_s": 1.1171797179995338,
+  "protocol": "equality-actual-v2",
+  "run_id": "run4",
+  "seeds": [
+    101,
+    202,
+    303
+  ],
+  "status": "success",
+  "verdict": "success"
+}

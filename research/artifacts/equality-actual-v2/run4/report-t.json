@@ -1,0 +1,55 @@
+{
+  "accounting": {
+    "excluded_runs": [],
+    "paired_seeds": 3,
+    "per_arm": {
+      "baseline": 3,
+      "treatment": 3
+    },
+    "total_runs": 6
+  },
+  "ci_hi": 0.3539432689913657,
+  "ci_lo": -0.5939432689913657,
+  "config_hash": "e2a56245deea3ff12a3c15e46efa745c227788df5610cf89d15e1222c3e98d54",
+  "mean_diff": -0.12,
+  "method_requested": "t",
+  "method_used": "t (scipy, 95%)",
+  "multiplicity": {
+    "correction": "none",
+    "interpretation": "exploratory (no multiplicity correction)",
+    "m_comparisons": 1
+  },
+  "n_pairs": 3,
+  "p_value": 0.3897428467412706,
+  "pairing": "paired by seed_data across arms ['baseline', 'treatment']",
+  "per_seed": [
+    {
+      "baseline_acc": 0.78,
+      "baseline_run_id": "run4:baseline:seed-101",
+      "diff": -0.020000000000000018,
+      "seed_data": 101,
+      "treatment_acc": 0.76,
+      "treatment_run_id": "run4:treatment:seed-101"
+    },
+    {
+      "baseline_acc": 0.24,
+      "baseline_run_id": "run4:baseline:seed-202",
+      "diff": 0.0,
+      "seed_data": 202,
+      "treatment_acc": 0.24,
+      "treatment_run_id": "run4:treatment:seed-202"
+    },
+    {
+      "baseline_acc": 0.6,
+      "baseline_run_id": "run4:baseline:seed-303",
+      "diff": -0.33999999999999997,
+      "seed_data": 303,
+      "treatment_acc": 0.26,
+      "treatment_run_id": "run4:treatment:seed-303"
+    }
+  ],
+  "protocol": "equality-actual-v2",
+  "warnings": [
+    "small-n: n_pairs=3 < 5; interval is wide, treat as preliminary"
+  ]
+}

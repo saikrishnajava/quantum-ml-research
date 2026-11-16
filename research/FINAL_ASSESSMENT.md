@@ -201,3 +201,73 @@ bash docs/verify-track-c.sh
 - Next: write-up or stop. No further experiments without fresh approval.
 
 **Touched (v5 task):** `research/FINAL_ASSESSMENT.md`, `research/RESULTS_INDEX.md`, `research/STATE.md` only.
+
+---
+## Superseding assessment 2026-11-17 (research/audit-1587497 @ a3addab) — authoritative, priors preserved below
+
+**Date:** 2026-11-17 UTC. **Scope:** docs-audit only; priors v1–v5 preserved above without edit. No new experiments, no confirmatory re-runs, no code changes. See pointer: `research/EVIDENCE_REPAIR.md`.
+
+**A. Actual-circuit measurements:** none yet from confirmatory_mag (numpy MLP only); quantum head same-token per `hybrid/attention/quantum_attention.py:79-86`, fallback classical per `hybrid/attention/quantum_attention.py:92-100`. No hardware run; no circuit gap measured.
+
+**B. Classical proxy experiments:** full-information MLP (ordered-concat) vs last-token-only MLP (zeros+last-block) per `tests/test_confirmatory_mag.py:134-142,146-152`; numbers +0.48/+0.53 are proxy gaps, not circuit gaps. Associations-only; no hardware claim.
+
+**C. Synthetic memorization controls:** dict memorizer `tests/test_pilots_overlap.py:89-99` shows split-design vulnerability (+0.229); memorizer result demonstrates inflation mechanics only, no causation for original models — no causation claimed.
+
+**D. Structural code observations:** same-token loop, mask-blind quantum path, threshold record-only (`:68,:250`), Bonferroni constant (`:69,:255`), wrapper fail-open (`:5`). Record-only observations; no behavior beyond code fact asserted.
+
+**E. Historical unverified reports:** prior quantitative headlines are proxy-scoped, associations-only, no hardware/novelty/publication claim. Restated: no novelty claimed, no publication claim made. No quantum advantage claimed or shown.
+
+**Pointer:** full repair plan and checklist in `research/EVIDENCE_REPAIR.md`.
+
+---
+## Superseding assessment 2026-11-16 actual-model — authoritative, priors v1–v5 preserved above
+
+**Date:** 2026-11-16 UTC. **Branch:** `research/audit-1587497` @ `a3addab` (`a3addab83791b9b2c39e8bb05a12e74fb1444f66`), local-only.
+**Scope:** actual-model smoke only; priors preserved above without edit. Auth: mission Phase7 autonomous. No new proxy claims; no push.
+
+**Headline:** "Actual-model equality-task smoke (n=3, exploratory): no difference demonstrated (mean -0.12 [-0.59,0.35] p 0.39); positive control learns (1.0), negative at floor; no advantage claimed or shown."
+
+**A. Actual-circuit measurements (run4, equality-actual-v2):** n_pairs=3, mean_diff -0.12, CI [-0.5939,0.3539] ([-0.5939432689913657,0.3539432689913657]), p 0.3897 (0.3897428467412706), method t/exploratory small-n (scipy, 95%, multiplicity none/m=1); per-seed 101 0.78/0.76 -0.02, 202 0.24/0.24 0.0, 303 0.60/0.26 -0.34; overlap 0; positive 1.0 (positive_acc=1.0 all seeds); deterministic (predictions/targets bytes match on repro); config e2a5 (`e2a56245deea3ff12a3c15e46efa745c227788df5610cf89d15e1222c3e98d54`); actual QuantumAttentionCircuit 6q/1-layer executed (forward+grads+step proven 11/11).
+
+**B. Classical proxy experiments:** prior full-information vs last-token-only MLP gaps +0.48/+0.53 are proxy-only, not circuit gaps (per EVIDENCE_REPAIR). Associations-only; no hardware claim; full-information and last-token-only labels refer to MLP proxy conditions only.
+
+**C. Synthetic memorizer:** dict memorizer +0.229 shows split vulnerability (split-design inflation mechanics only); memorizer result demonstrates inflation mechanics only, no causation for original models — no causation claimed.
+
+**D. Structural:** same-token head `hybrid/attention/quantum_attention.py:79-86`, classical fallback `hybrid/attention/quantum_attention.py:92-100`, token-local stated; threshold/Bonferroni record-only; wrapper fail-open replaced by fail-closed runner (`docs/verify-actual.sh` `set -euo pipefail`).
+
+**E. Historical unverified:** prior quantitative headlines proxy-scoped only, associations-only. Restated: no novelty, no publication claim made — no publication claim; no quantum advantage claimed or shown — no quantum advantage claimed.
+
+**Limits:** n=3 exploratory, tiny CPU, single task, MLP proxy history separate, venv-only.
+
+**Pointers:** `research/EVIDENCE_REPAIR.md` + `research/protocols/equality-actual-v2.json` + `research/artifacts/equality-actual-v2/run4/raw.json` + `research/artifacts/equality-actual-v2/run4/report-t.json` + `docs/verify-actual.sh` + `docs/analyze-only.sh`.
+
+**Touched (this task):** `research/FINAL_ASSESSMENT.md` only (append).
+
+---
+## Correction note 2026-11-17 (critic fixes — append-only; no numbers change)
+
+Refs the two superseding sections above; priors v1–v5 intact, no values altered, no re-runs performed.
+
+**1. Exact repro cmds + expected outputs (actual-model superseding 2026-11-16 section).**
+Safe re-runnable (fail-closed `set -euo pipefail`):
+```
+bash docs/verify-actual.sh
+bash docs/analyze-only.sh research/artifacts/equality-actual-v2/run4/raw.json /tmp/opencode/actual-repro-check/report-t.json && .venv/bin/python -m json.tool /tmp/opencode/actual-repro-check/report-t.json
+```
+Expected outputs: `bash docs/verify-actual.sh` → exit 0, `ok run_id=run-repro-<stamp>`, report match `n_pairs=3 mean_diff=-0.12 overlap=0 positive_acc=1.0`; analyze-only → exit 0, report byte-identical to `run4/report-t.json` (1483B). Read-only freeze verify: `git branch --show-current; git rev-parse --short HEAD; git status --porcelain; ls research/`.
+Old confirmatory locks stay locked — do NOT re-run `tests/test_confirmatory_routing.py` (v3) or `tests/test_confirmatory_mag.py` (v4); second invocation must refuse via run-once marker. Phase 6 / actual-model repro never invoked them.
+
+**2. Chronological inversion annotated.**
+The "Superseding assessment 2026-11-17" (docs-audit) section is banked above the "Superseding assessment 2026-11-16 actual-model" section: order is banking order, not authoring-date order — the 11-17 audit note was appended first, the 11-16-dated actual-model note second. No timeline claim affected; numbers unchanged.
+
+**3. Low fixes.**
+Touched-scope alignment: per-section "Touched" lines are historical records of their own tasks and stand; authoritative touched for this correction task: `research/FINAL_ASSESSMENT.md` (this appended note only) + `docs/plans/2026-11-17-actual-repro-progress.md` (pointer note). Single-sentence novelty/advantage statement: no novelty is claimed, no publication claim is made, and no quantum advantage is claimed or shown. Per-seed split (values duplicated from the superseding 2026-11-16 section above, not new measurements):
+
+| seed | classical | quantum | diff |
+| 101 | 0.78 | 0.76 | -0.02 |
+| 202 | 0.24 | 0.24 | 0.0 |
+| 303 | 0.60 | 0.26 | -0.34 |
+
+Mean diff -0.12, CI [-0.5939,0.3539], p 0.3897 — unchanged.
+
+**Touched (this task):** `research/FINAL_ASSESSMENT.md`, `docs/plans/2026-11-17-actual-repro-progress.md` only (append).
